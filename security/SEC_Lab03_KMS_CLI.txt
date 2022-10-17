@@ -1,0 +1,19 @@
+Acesse a sua conta da AWS. 
+Acesse o serviço KMS e crie uma chave simétrica. Anote o ID da chave.
+
+Acesse o cloud shell
+Crie um arquivo chamado senha.txt. Coloque um texto super secreto dentro dele.
+
+
+aws kms encrypt --key-id b7cc6c6f-0b25-4312-bf50-c0c5f131a79e --plaintext fileb://senha.txt --output text --query CiphertextBlob --region us-east-1 > senha.base64
+cat senha.base64 | base64 --decode > Encrypteddatafile
+
+
+Apague os arquivos criados, exceto o "Encryteddatafile". Perceba que não restaram arquivos para ler. Somente o arquivo binário do arquivo criptografado.
+Este arquivo foi criptografado com algoritmo simétrico AES-256. 
+
+
+aws kms decrypt --ciphertext-blob fileb://Encrypteddatafile   --output text --query Plaintext  > Decrypteddatafile.base64
+cat Decrypteddatafile.base64 | base64 --decode  > Decrypteddatafile.txt
+
+Abra e leia o arquivo.
