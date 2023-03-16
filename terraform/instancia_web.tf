@@ -61,7 +61,7 @@ resource "aws_subnet" "example_private_subnet" {
 }
 
 resource "aws_route" "route_internet" {
-  route_table_id = aws_vpc.example_vpc.default_route_table.id
+  route_table_id = aws_vpc.example_vpc.default_route_table_id
   destination_cidr_block = "0.0.0.0/0"
   gateway_id = aws_internet_gateway.example_igw.id
 }
