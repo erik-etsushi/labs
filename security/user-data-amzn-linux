@@ -1,0 +1,277 @@
+#!/bin/bash
+set -euxo pipefail
+
+dnf update -y
+dnf install -y nodejs npm
+
+mkdir -p /opt/ssrf-lab/app/public
+chown -R ec2-user:ec2-user /opt/ssrf-lab
+
+cat >/opt/ssrf-lab/app/package.json <<'PACKAGE_JSON'
+{
+  "name": "ssrf-aws-frontend-lab",
+  "version": "1.0.0",
+  "description": "Educational SSRF lab for cloud security classes",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
+
+PACKAGE_JSON
+cat >/opt/ssrf-lab/app/server.js <<'SERVER_JS'
+const express = require('express');
+const dns = require('dns').promises;
+const net = require('net');
+const { URL } = require('url');
+
+const app = express();
+const port = process.env.PORT || 8080;
+const maxBytes = Number(process.env.MAX_RESPONSE_BYTES || 12000);
+
+app.use(express.json());
+app.use(express.static('public'));
+
+function isPrivateOrSpecialIPv4(ip) {
+  const parts = ip.split('.').map(Number);
+  if (parts.length !== 4 || parts.some(n => Number.isNaN(n) || n < 0 || n > 255)) return true;
+  const [a, b] = parts;
+  return (
+    a === 10 ||
+    a === 127 ||
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168) ||
+    a === 0 ||
+    a >= 224
+  );
+}
+
+function isPrivateOrSpecialIPv6(ip) {
+  const normalized = ip.toLowerCase();
+  return normalized === '::1' || normalized.startsWith('fe80:') || normalized.startsWith('fc') || normalized.startsWith('fd');
+}
+
+function isBlockedIp(ip) {
+  const version = net.isIP(ip);
+  if (version === 4) return isPrivateOrSpecialIPv4(ip);
+  if (version === 6) return isPrivateOrSpecialIPv6(ip);
+  return true;
+}
+
+async function validateUrlStrict(input) {
+  const parsed = new URL(input);
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    throw new Error('Only http and https are allowed');
+  }
+  if (parsed.username || parsed.password) {
+    throw new Error('Credentials in URL are not allowed');
+  }
+  const records = await dns.lookup(parsed.hostname, { all: true, verbatim: true });
+  if (!records.length) throw new Error('DNS resolution failed');
+  for (const record of records) {
+    if (isBlockedIp(record.address)) {
+      throw new Error(`Blocked destination IP: ${record.address}`);
+    }
+  }
+  return parsed.toString();
+}
+
+async function fetchWithLimit(url, options = {}) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+  try {
+    const res = await fetch(url, {
+      method: options.method || 'GET',
+      headers: options.headers || {},
+      redirect: options.redirect || 'follow',
+      signal: controller.signal
+    });
+    const contentType = res.headers.get('content-type') || 'unknown';
+    const reader = res.body.getReader();
+    let received = 0;
+    const chunks = [];
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      received += value.length;
+      if (received > maxBytes) {
+        chunks.push(value.slice(0, Math.max(0, value.length - (received - maxBytes))));
+        break;
+      }
+      chunks.push(value);
+    }
+    const body = Buffer.concat(chunks).toString('utf8');
+    return {
+      status: res.status,
+      contentType,
+      truncated: received > maxBytes,
+      body
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+app.get('/health', (_req, res) => res.json({ ok: true }));
+
+// Intentionally vulnerable endpoint for classroom demonstration only.
+app.post('/api/fetch-vulnerable', async (req, res) => {
+  const { url } = req.body || {};
+  if (!url) return res.status(400).json({ error: 'Missing url' });
+  try {
+    const result = await fetchWithLimit(url, { redirect: 'follow' });
+    res.json({ mode: 'vulnerable', requestedUrl: url, ...result });
+  } catch (err) {
+    res.status(502).json({ mode: 'vulnerable', error: err.message });
+  }
+});
+
+// Safer endpoint: scheme restriction, DNS resolution checks, block private/link-local/loopback, no redirects.
+app.post('/api/fetch-safe', async (req, res) => {
+  const { url } = req.body || {};
+  if (!url) return res.status(400).json({ error: 'Missing url' });
+  try {
+    const validated = await validateUrlStrict(url);
+    const result = await fetchWithLimit(validated, { redirect: 'manual' });
+    res.json({ mode: 'safe', requestedUrl: url, ...result });
+  } catch (err) {
+    res.status(400).json({ mode: 'safe', blocked: true, error: err.message });
+  }
+});
+
+app.listen(port, () => {
+  console.log(`SSRF lab listening on http://0.0.0.0:${port}`);
+});
+
+SERVER_JS
+cat >/opt/ssrf-lab/app/public/index.html <<'INDEX_HTML'
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cloud Security Lab - SSRF</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <main class="container">
+    <section class="hero">
+      <p class="eyebrow">Cloud Security Lab</p>
+      <h1>SSRF em aplicação web</h1>
+      <p>Compare um endpoint vulnerável com uma versão que valida destinos antes de fazer requisições server-side.</p>
+    </section>
+
+    <section class="card warning">
+      <h2>Escopo do laboratório</h2>
+      <p>Use somente em uma conta isolada, com role de privilégio mínimo e Security Group restrito ao seu IP. Não use credenciais, buckets ou contas de produção.</p>
+    </section>
+
+    <section class="card">
+      <h2>Testar URL</h2>
+      <label for="url">URL que o servidor deve buscar</label>
+      <input id="url" type="url" value="http://example.com" />
+      <div class="buttons">
+        <button id="vulnerable">Buscar pelo endpoint vulnerável</button>
+        <button id="safe" class="secondary">Buscar pelo endpoint seguro</button>
+      </div>
+    </section>
+
+    <section class="grid">
+      <div class="card">
+        <h2>Exemplos didáticos</h2>
+        <button class="example" data-url="http://example.com">Destino público</button>
+        <button class="example" data-url="http://169.254.169.254/latest/meta-data/">Metadata raiz</button>
+        <button class="example" data-url="http://169.254.169.254/latest/meta-data/iam/security-credentials/">Nome da role via IMDS</button>
+        <p class="hint">O último passo depende da role associada à EC2 e da configuração do IMDS.</p>
+      </div>
+      <div class="card">
+        <h2>Resultado</h2>
+        <pre id="output">Nenhuma requisição ainda.</pre>
+      </div>
+    </section>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>
+
+INDEX_HTML
+cat >/opt/ssrf-lab/app/public/app.js <<'APP_JS'
+const input = document.getElementById('url');
+const output = document.getElementById('output');
+
+for (const button of document.querySelectorAll('.example')) {
+  button.addEventListener('click', () => {
+    input.value = button.dataset.url;
+  });
+}
+
+async function run(path) {
+  output.textContent = 'Executando...';
+  try {
+    const res = await fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: input.value })
+    });
+    const data = await res.json();
+    output.textContent = JSON.stringify(data, null, 2);
+  } catch (err) {
+    output.textContent = err.message;
+  }
+}
+
+document.getElementById('vulnerable').addEventListener('click', () => run('/api/fetch-vulnerable'));
+document.getElementById('safe').addEventListener('click', () => run('/api/fetch-safe'));
+
+APP_JS
+cat >/opt/ssrf-lab/app/public/styles.css <<'STYLES_CSS'
+:root { font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #172033; background: #f5f7fb; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+.container { width: min(1100px, calc(100% - 32px)); margin: 32px auto; }
+.hero { padding: 32px 0 16px; }
+.eyebrow { text-transform: uppercase; letter-spacing: .12em; color: #4a5d84; font-weight: 700; }
+h1 { font-size: clamp(2rem, 6vw, 4rem); margin: 0 0 8px; }
+h2 { margin-top: 0; }
+.card { background: white; border: 1px solid #dfe5f2; border-radius: 18px; padding: 24px; margin: 16px 0; box-shadow: 0 8px 22px rgba(34, 53, 91, .06); }
+.warning { border-color: #f0c36a; background: #fff9ea; }
+label { display: block; font-weight: 700; margin-bottom: 8px; }
+input { width: 100%; padding: 14px 16px; border: 1px solid #cbd5e1; border-radius: 12px; font-size: 1rem; }
+.buttons { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px; }
+button { border: 0; border-radius: 12px; padding: 12px 16px; background: #22355b; color: white; font-weight: 700; cursor: pointer; }
+button.secondary { background: #546179; }
+button.example { display: block; width: 100%; text-align: left; margin: 10px 0; background: #e8edf8; color: #172033; }
+.grid { display: grid; grid-template-columns: 1fr 1.4fr; gap: 16px; }
+pre { min-height: 280px; max-height: 520px; overflow: auto; background: #0f172a; color: #e2e8f0; padding: 18px; border-radius: 14px; white-space: pre-wrap; word-break: break-word; }
+.hint { color: #5b6475; }
+@media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+
+STYLES_CSS
+
+cd /opt/ssrf-lab/app
+npm install --omit=dev
+
+cat >/etc/systemd/system/ssrf-lab.service <<'UNIT'
+[Unit]
+Description=SSRF Classroom Lab
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/ssrf-lab/app
+ExecStart=/usr/bin/npm start
+Restart=always
+User=ec2-user
+Environment=PORT=8080
+Environment=MAX_RESPONSE_BYTES=12000
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
+systemctl daemon-reload
+systemctl enable --now ssrf-lab
