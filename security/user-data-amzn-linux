@@ -155,39 +155,38 @@ cat >/opt/ssrf-lab/app/public/index.html <<'INDEX_HTML'
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Cloud Security Lab - SSRF</title>
+  <title>Buscador de fotos do Linkedin</title>
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
   <main class="container">
-    <section class="hero">
-      <p class="eyebrow">Cloud Security Lab</p>
-      <h1>SSRF em aplicação web</h1>
-      <p>Compare um endpoint vulnerável com uma versão que valida destinos antes de fazer requisições server-side.</p>
-    </section>
-
     <section class="card warning">
       <h2>Escopo do laboratório</h2>
       <p>Use somente em uma conta isolada, com role de privilégio mínimo e Security Group restrito ao seu IP. Não use credenciais, buckets ou contas de produção.</p>
+    </section>    
+<section class="hero">
+      <p class="eyebrow">Bem vindo ao montador de curriculo do Linkedin</p>
+      <h1>Nosso site te ajuda a criar um curriculum com base no seu perfil de Linkedin</h1>
     </section>
 
+
+
     <section class="card">
-      <h2>Testar URL</h2>
-      <label for="url">URL que o servidor deve buscar</label>
-      <input id="url" type="url" value="http://example.com" />
+      <h2>É simples! Basta colocar o seu endereço de perfil aqui e criaremos o seu CV</h2>
+      <label for="url">URL do seu perfil do Linkedin</label>
+      <input id="url" type="url" value="http://www.linkedin.com/in/seu-perfil" />
       <div class="buttons">
-        <button id="vulnerable">Buscar pelo endpoint vulnerável</button>
-        <button id="safe" class="secondary">Buscar pelo endpoint seguro</button>
+        <button id="vulnerable">Criar meu Curriculo!</button>
+        <button id="safe" class="secondary">Criar meu Curriculo! (s)</button>
       </div>
     </section>
 
     <section class="grid">
       <div class="card">
         <h2>Exemplos didáticos</h2>
-        <button class="example" data-url="http://example.com">Destino público</button>
-        <button class="example" data-url="http://169.254.169.254/latest/meta-data/">Metadata raiz</button>
-        <button class="example" data-url="http://169.254.169.254/latest/meta-data/iam/security-credentials/">Nome da role via IMDS</button>
-        <p class="hint">O último passo depende da role associada à EC2 e da configuração do IMDS.</p>
+        <button class="example" data-url="http://www.linkedin.com/perfil">Perfil do linkedin</button>
+        <!--<button class="example" data-url="http://169.254.169.254/latest/meta-data/">Metadata raiz</button>
+        <p class="hint">O último passo depende da role associada à EC2 e da configuração do IMDS.</p>-->
       </div>
       <div class="card">
         <h2>Resultado</h2>
