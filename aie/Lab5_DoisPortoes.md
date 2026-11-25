@@ -3,7 +3,7 @@
 **Disciplina:** Segurança Operacional de Agentes de IA · **Aula 3** · **Duração:** 2h (em aula)
 **Ambiente:** uma **VM do GCP (Compute Engine)** no seu projeto com crédito educacional, tudo num `docker compose`.
 
-> **A ideia:** um **agente** fica entre **dois portões**. O **AI gateway** (LiteLLM) controla o que ele fala com o modelo; o **MCP gateway** controla o que ele faz com as ferramentas. Você vai **atravessar cada portão com um ataque e medir o que o portão barra** — e ver que, mesmo quando o agente cai na armadilha, a **arquitetura leva o dano a zero**.
+> **A ideia:** um **agente** fica entre **dois portões**. O **AI gateway** (LiteLLM) controla o que ele fala com o modelo; o **MCP gateway** controla o que ele faz com as ferramentas. Você vai **atravessar cada portão com um ataque e medir o que o portão barra** 
 
 
 ---
