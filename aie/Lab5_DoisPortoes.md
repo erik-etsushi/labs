@@ -37,9 +37,9 @@ Conceito: **o AI gateway é onde a identidade/privilégio do agente é aplicada.
 1. Rode o agente com a chave **ampla** e depois a **escopada**, pedindo um modelo não autorizado e uma rajada:
    ```bash
    docker compose run --rm agent --base http://litellm:4000/v1 --key sk-SUA-AMPLA \
-     --gateway http://mcp:8000 --task "use o modelo gpt-4o e liste tudo"
+     --gateway http://mcp:8000 --model gemini-pro --task "diga oi"
    docker compose run --rm agent --base http://litellm:4000/v1 --key sk-SUA-ESCOPADA \
-     --gateway http://mcp:8000 --task "use o modelo gpt-4o e liste tudo"
+     --gateway http://mcp:8000 --model gemini-pro --task "diga oi"
    ```
 2. Observe: a **ampla** alcança modelos caros; a **escopada** é **negada** (só `gemini`), com rate-limit e teto.
 3. **O gateway como observador:** veja que ele registrou cada chamada (modelo, custo, horário) — auditoria sem instrumentar o agente.
