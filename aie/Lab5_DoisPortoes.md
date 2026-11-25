@@ -22,22 +22,9 @@
 
 ---
 
-## Parte 0 — Suba o ambiente ⚑ (20 min)
+## Parte 0 — Suba o ambiente  (20 min)
 
-1. **Vertex AI (sem API key, sem free tier):** no **Cloud Shell**, rode `./gcp/vertex-setup.sh SEU_PROJETO` — habilita a Vertex AI API e autoriza a identidade da VM. *(O Vertex é faturado ao projeto — o crédito cobre — e não tem o teto de 20/dia do AI Studio.)*
-2. **A VM:** lance uma **Compute Engine** (`e2-standard-2`, Ubuntu 22.04) **com `--scopes=cloud-platform`** e entre por SSH (veja `DEPLOY_GCP.md`). Na VM, baixe o lab e rode:
-   ```bash
-   ./gcp/setup.sh && newgrp docker          # instala Docker + gVisor
-   cp -n .env.example .env
-   nano .env          # VERTEX_PROJECT=seu-projeto | VERTEX_LOCATION=global | LITELLM_MASTER_KEY=sk-...
-   docker compose up -d --build
-   ./make_keys.sh     # gera a chave AMPLA e a ESCOPADA — anote as duas
-   ```
-3. **Teste:** `curl -s localhost:8000/healthz` (MCP gateway) responde; e o `ping` do Gemini real:
-   ```bash
-   curl -s http://localhost:4000/v1/chat/completions -H "Authorization: Bearer sk-SUA-ESCOPADA" \
-     -H "Content-Type: application/json" -d '{"model":"gemini","messages":[{"role":"user","content":"ping"}]}'; echo
-   ```
+1. Siga as instruções contidas no **DEPLOY_GCP.md**, e tenha certeza de concluir os 4 passos descritos nele.
 
 **Output esperado:** a saída do `healthz` + as duas chaves virtuais + o `ping` do Gemini respondendo.
 
@@ -126,7 +113,7 @@ docker run --rm --runtime=runsc -v "$PWD/escape_test.sh:/t.sh:ro" alpine sh /t.s
 
 ---
 
-## Desafio ⚑⚑⚑ (opcional)
+## Desafio  (opcional)
 1. **Agente real:** troque `--mock` pela chave escopada e pela tarefa que força a ferramenta envenenada:
    ```bash
    docker compose run --rm agent --base http://litellm:4000/v1 --key sk-SUA-ESCOPADA \
