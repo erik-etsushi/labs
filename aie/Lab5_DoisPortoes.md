@@ -8,10 +8,10 @@
 
 ---
 
-## 0. OWASP ASI cobertos
+##  OWASP ASI cobertos
 `ASI03` (Identity/Privilege, portão esquerdo) · `ASI02`/`ASI07` (Tool Misuse / MCP, portão direito) · `ASI05` (Code Execution, sandbox).
 
-## 1. Ferramentas e conceitos
+##  Ferramentas e conceitos
 | Ferramenta | Conceito (categoria) | Alternativas de mercado |
 |---|---|---|
 | **LiteLLM** | **AI gateway** (agente ↔ LLM): identidade/chave escopada, rate-limit, **teto de orçamento**, audit | Portkey, Kong AI Gateway, Cloudflare AI Gateway, Helicone |
